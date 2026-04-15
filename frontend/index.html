@@ -668,38 +668,65 @@ function drawPriceChart(d){
   const L=C.map(c=>c.t.slice(5,16));
   const digits=d.digits;
 
-  // Annotation lines for TP/SL
+  // Auto-calculate Y axis range from actual price data with padding
+  const allPrices=[];
+  C.forEach(c=>{allPrices.push(c.h,c.l,c.o,c.c,c.ma20,c.ma50,c.bb_up,c.bb_lo);});
+  if(d.tp2) allPrices.push(d.tp2);
+  if(d.sl)  allPrices.push(d.sl);
+  const validPrices=allPrices.filter(v=>v&&!isNaN(v)&&v>0);
+  const minP=Math.min(...validPrices);
+  const maxP=Math.max(...validPrices);
+  const pad=(maxP-minP)*0.15;
+  const yMin=parseFloat((minP-pad).toFixed(digits));
+  const yMax=parseFloat((maxP+pad).toFixed(digits));
+
+  // Annotation lines for TP/SL/Entry
   const annotations={};
   if(d.signal&&d.signal.dir!=="WAIT"&&d.entry){
-    annotations.entry={type:"line",scaleID:"y",value:d.entry,borderColor:"#58a6ff",borderWidth:1.5,borderDash:[4,3],label:{content:"Entry "+d.entry.toFixed(digits),display:true,backgroundColor:"rgba(88,166,255,.2)",color:"#58a6ff",font:{size:9,family:"Space Mono"}}};
-    annotations.sl={type:"line",scaleID:"y",value:d.sl,borderColor:"#ff4d6d",borderWidth:1.5,borderDash:[4,3],label:{content:"SL "+d.sl.toFixed(digits),display:true,backgroundColor:"rgba(255,77,109,.2)",color:"#ff4d6d",font:{size:9,family:"Space Mono"}}};
-    annotations.tp1={type:"line",scaleID:"y",value:d.tp1,borderColor:"#00d26a",borderWidth:1.5,borderDash:[4,3],label:{content:"TP1 "+d.tp1.toFixed(digits),display:true,backgroundColor:"rgba(0,210,106,.2)",color:"#00d26a",font:{size:9,family:"Space Mono"}}};
-    annotations.tp2={type:"line",scaleID:"y",value:d.tp2,borderColor:"#00ff85",borderWidth:1,borderDash:[2,4],label:{content:"TP2 "+d.tp2.toFixed(digits),display:true,backgroundColor:"rgba(0,255,133,.1)",color:"#00ff85",font:{size:9,family:"Space Mono"}}};
+    annotations.entry={type:"line",scaleID:"y",value:d.entry,borderColor:"#58a6ff",borderWidth:2,borderDash:[5,3],
+      label:{content:"▶ Entry "+d.entry.toFixed(digits),display:true,position:"start",backgroundColor:"rgba(88,166,255,.25)",color:"#58a6ff",font:{size:9,family:"Space Mono",weight:"bold"}}};
+    annotations.sl={type:"line",scaleID:"y",value:d.sl,borderColor:"#ff4d6d",borderWidth:2,borderDash:[5,3],
+      label:{content:"✕ SL "+d.sl.toFixed(digits),display:true,position:"start",backgroundColor:"rgba(255,77,109,.25)",color:"#ff4d6d",font:{size:9,family:"Space Mono",weight:"bold"}}};
+    annotations.tp1={type:"line",scaleID:"y",value:d.tp1,borderColor:"#00d26a",borderWidth:2,borderDash:[5,3],
+      label:{content:"✓ TP1 "+d.tp1.toFixed(digits),display:true,position:"start",backgroundColor:"rgba(0,210,106,.25)",color:"#00d26a",font:{size:9,family:"Space Mono",weight:"bold"}}};
+    annotations.tp2={type:"line",scaleID:"y",value:d.tp2,borderColor:"#00ff85",borderWidth:1.5,borderDash:[3,4],
+      label:{content:"★ TP2 "+d.tp2.toFixed(digits),display:true,position:"start",backgroundColor:"rgba(0,255,133,.15)",color:"#00ff85",font:{size:9,family:"Space Mono"}}};
   }
 
   let datasets=[];
   if(chartType==="candle"){
-    // Simulate candle bars using floating bars
-    const up=C.map(c=>c.c>=c.o?[c.o,c.c]:null).filter(Boolean);
-    const dn=C.map(c=>c.c<c.o?[c.c,c.o]:null);
+    // Proper candlestick using floating bar chart
     datasets=[
-      {label:"Up",data:C.map(c=>c.c>=c.o?[c.o,c.c]:null),backgroundColor:"rgba(0,210,106,0.8)",borderColor:"#00d26a",borderWidth:1,type:"bar",barThickness:4,order:2},
-      {label:"Dn",data:C.map(c=>c.c<c.o?[c.c,c.o]:null),backgroundColor:"rgba(255,77,109,0.8)",borderColor:"#ff4d6d",borderWidth:1,type:"bar",barThickness:4,order:2},
-      {label:"HL Up",data:C.map(c=>c.c>=c.o?[c.l,c.h]:null),backgroundColor:"rgba(0,210,106,0.4)",type:"bar",barThickness:1,order:3},
-      {label:"HL Dn",data:C.map(c=>c.c<c.o?[c.l,c.h]:null),backgroundColor:"rgba(255,77,109,0.4)",type:"bar",barThickness:1,order:3},
-      {label:"MA20",data:C.map(c=>c.ma20),borderColor:"#f7c948",borderWidth:1,borderDash:[4,2],pointRadius:0,tension:0.2,type:"line",order:1},
-      {label:"MA50",data:C.map(c=>c.ma50),borderColor:"#ff4d6d",borderWidth:1,borderDash:[6,3],pointRadius:0,tension:0.2,type:"line",order:0},
+      // Body - bullish (close >= open)
+      {label:"Bull body",data:C.map(c=>c.c>=c.o?[c.o,c.c]:[null,null]),
+       backgroundColor:"rgba(0,210,106,0.85)",borderColor:"#00d26a",borderWidth:1,
+       type:"bar",barPercentage:0.6,categoryPercentage:0.8,order:2},
+      // Body - bearish (close < open)
+      {label:"Bear body",data:C.map(c=>c.c<c.o?[c.c,c.o]:[null,null]),
+       backgroundColor:"rgba(255,77,109,0.85)",borderColor:"#ff4d6d",borderWidth:1,
+       type:"bar",barPercentage:0.6,categoryPercentage:0.8,order:2},
+      // Wick - bullish
+      {label:"Bull wick",data:C.map(c=>c.c>=c.o?[c.l,c.h]:[null,null]),
+       backgroundColor:"rgba(0,210,106,0.6)",borderColor:"rgba(0,210,106,0.6)",borderWidth:1,
+       type:"bar",barPercentage:0.08,categoryPercentage:0.8,order:3},
+      // Wick - bearish
+      {label:"Bear wick",data:C.map(c=>c.c<c.o?[c.l,c.h]:[null,null]),
+       backgroundColor:"rgba(255,77,109,0.6)",borderColor:"rgba(255,77,109,0.6)",borderWidth:1,
+       type:"bar",barPercentage:0.08,categoryPercentage:0.8,order:3},
+      // MAs
+      {label:"MA20",data:C.map(c=>c.ma20),borderColor:"#f7c948",borderWidth:1.5,borderDash:[4,2],pointRadius:0,tension:0.2,type:"line",order:1},
+      {label:"MA50",data:C.map(c=>c.ma50),borderColor:"#ff6b6b",borderWidth:1.5,borderDash:[6,3],pointRadius:0,tension:0.2,type:"line",order:0},
     ];
-    document.getElementById("priceLabel").textContent="Candlestick · MA20 · MA50";
+    document.getElementById("priceLabel").textContent="Candlestick · MA20 (yellow) · MA50 (red)";
   } else {
     datasets=[
-      {label:"Price",data:C.map(c=>c.c),borderColor:"#58a6ff",backgroundColor:"rgba(88,166,255,0.06)",borderWidth:1.5,fill:true,pointRadius:0,tension:0.2,order:3},
-      {label:"MA20",data:C.map(c=>c.ma20),borderColor:"#f7c948",borderWidth:1,borderDash:[4,2],pointRadius:0,tension:0.2,order:2},
-      {label:"MA50",data:C.map(c=>c.ma50),borderColor:"#ff4d6d",borderWidth:1,borderDash:[6,3],pointRadius:0,tension:0.2,order:1},
-      {label:"BB Up",data:C.map(c=>c.bb_up),borderColor:"rgba(255,255,255,0.07)",borderWidth:1,pointRadius:0,fill:false,order:0},
-      {label:"BB Lo",data:C.map(c=>c.bb_lo),borderColor:"rgba(255,255,255,0.07)",borderWidth:1,pointRadius:0,fill:"-1",backgroundColor:"rgba(255,255,255,0.02)",order:0},
+      {label:"Price",data:C.map(c=>c.c),borderColor:"#58a6ff",backgroundColor:"rgba(88,166,255,0.06)",borderWidth:2,fill:true,pointRadius:0,tension:0.3,order:3},
+      {label:"MA20",data:C.map(c=>c.ma20),borderColor:"#f7c948",borderWidth:1.5,borderDash:[4,2],pointRadius:0,tension:0.2,order:2},
+      {label:"MA50",data:C.map(c=>c.ma50),borderColor:"#ff6b6b",borderWidth:1.5,borderDash:[6,3],pointRadius:0,tension:0.2,order:1},
+      {label:"BB Up",data:C.map(c=>c.bb_up),borderColor:"rgba(255,255,255,0.12)",borderWidth:1,pointRadius:0,fill:false,order:0},
+      {label:"BB Lo",data:C.map(c=>c.bb_lo),borderColor:"rgba(255,255,255,0.12)",borderWidth:1,pointRadius:0,fill:"-1",backgroundColor:"rgba(255,255,255,0.03)",order:0},
     ];
-    document.getElementById("priceLabel").textContent="Price · MA20 · MA50 · Bollinger Bands";
+    document.getElementById("priceLabel").textContent="Price · MA20 (yellow) · MA50 (red) · Bollinger Bands";
   }
 
   pC=new Chart(document.getElementById("priceChart"),{
@@ -710,12 +737,32 @@ function drawPriceChart(d){
       plugins:{
         legend:{display:false},
         annotation:{annotations},
-        tooltip:{backgroundColor:"#161b22",titleFont:{family:"Space Mono",size:9},bodyFont:{family:"Space Mono",size:9},
-          callbacks:{label:ctx=>`${ctx.dataset.label}: ${ctx.parsed.y!=null?Number(ctx.parsed.y).toFixed(digits):""}`}}
+        tooltip:{
+          backgroundColor:"#161b22",
+          titleFont:{family:"Space Mono",size:9},
+          bodyFont:{family:"Space Mono",size:9},
+          callbacks:{
+            title:ctx=>`${ctx[0].label}`,
+            label:ctx=>{
+              const i=ctx.dataIndex;
+              const c=C[i];
+              if(ctx.datasetIndex===0&&chartType==="candle")
+                return `O:${c.o} H:${c.h} L:${c.l} C:${c.c}`;
+              return `${ctx.dataset.label}: ${ctx.parsed.y!=null?Number(ctx.parsed.y).toFixed(digits):""}`;
+            }
+          }
+        }
       },
       scales:{
         x:{ticks:{maxTicksLimit:8,color:"#484f58",font:{family:"Space Mono",size:9}},grid:{color:"rgba(255,255,255,0.04)"}},
-        y:{position:"right",ticks:{color:"#484f58",font:{family:"Space Mono",size:9},maxTicksLimit:6,callback:v=>Number(v).toFixed(digits<=3?2:4)},grid:{color:"rgba(255,255,255,0.04)"}}
+        y:{
+          position:"right",
+          min:yMin,
+          max:yMax,
+          ticks:{color:"#484f58",font:{family:"Space Mono",size:9},maxTicksLimit:8,
+            callback:v=>Number(v).toFixed(digits<=3?2:digits<=5?4:2)},
+          grid:{color:"rgba(255,255,255,0.05)"}
+        }
       }
     }
   });
