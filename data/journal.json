@@ -1,0 +1,16 @@
+[
+  {
+    "sym": "GBPUSD",
+    "label": "GBPUSD#",
+    "dir": "BUY",
+    "entry": 1.35702,
+    "sl": 1.35518,
+    "tp1": 1.36008,
+    "lots": 0.01,
+    "note": "",
+    "id": 1776283087162,
+    "opened": "2026-04-15T19:58:07.162727",
+    "status": "open",
+    "pnl": null
+  }
+]
